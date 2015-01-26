@@ -156,17 +156,24 @@ class Game
 
   def initialize
     @game_on = true
-    @board = Board.new
+    set_up
+  end
+
+  def set_up
+    if load_prompt
+      print "Enter filename: "
+      filename = gets.chomp.downcase
+      load_board(filename)
+    else
+      @board = Board.new
+    end
+    self.play
   end
 
   def play
     puts "Welcome to Minesweeper!"
 
-    if load_prompt
-      print "Enter filename: "
-      filename = gets.chomp.downcase
-      load(filename)
-    end
+
 
     while @game_on
 
@@ -181,7 +188,7 @@ class Game
       when 'u'
         @board.unflag(position)
       when 'save'
-        save_game(position)
+        save_board(position)
       end
 
       if @board.game_over
@@ -200,14 +207,14 @@ class Game
 
   end
 
-  def save_game(filename)
+  def save_board(filename)
     File.open("#{filename}", 'w') do |line|
       line.puts @board.to_yaml
     end
     puts "File saved."
   end
 
-  def load(filename)
+  def load_board(filename)
 
     contents = File.readlines(filename)
     @board = YAML::load(contents.join)
@@ -262,5 +269,10 @@ class Game
       puts "That is not a valid action."
     end
   end
+
+end
+
+if __FILE__ == $PROGRAM_NAME
+  game = Game.new
 
 end

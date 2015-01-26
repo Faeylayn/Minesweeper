@@ -404,7 +404,7 @@ board:
     bomb: false
     flagged: false
     adjacent_bombs: 1
-    revealed: false
+    revealed: true
 game_over: false
 num_bombs: 33
 bombs_found: 0

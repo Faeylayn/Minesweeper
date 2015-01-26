@@ -46,6 +46,8 @@ class Board
       puts "#{idx} #{row.map do |tile|
         if tile.flagged
           'F'
+        elsif tile.bomb && @game_over == true
+          'X'
         elsif tile.revealed == false
           '*'
         elsif tile.adjacent_bombs == 0
@@ -161,7 +163,9 @@ class Game
     puts "Welcome to Minesweeper!"
 
     if load_prompt
-      load
+      print "Enter filename: "
+      filename = gets.chomp.downcase
+      load(filename)
     end
 
     while @game_on
@@ -177,7 +181,7 @@ class Game
       when 'u'
         @board.unflag(position)
       when 'save'
-        save_game
+        save_game(position)
       end
 
       if @board.game_over
@@ -196,18 +200,17 @@ class Game
 
   end
 
-  def save_game
-    File.open('save.yaml', 'w') do |line|
+  def save_game(filename)
+    File.open("#{filename}", 'w') do |line|
       line.puts @board.to_yaml
     end
     puts "File saved."
   end
 
-  def load
+  def load(filename)
 
-    contents = File.readlines('save.yaml')
+    contents = File.readlines(filename)
     @board = YAML::load(contents.join)
-    debugger
     nil
   end
 
@@ -218,7 +221,7 @@ class Game
       response = gets.chomp.downcase
       if response == 'y'
         return true
-      elsif respone == 'n'
+      elsif response == 'n'
         return false
       else
         puts "Invalid response."
@@ -232,9 +235,14 @@ class Game
     puts "'save' to save, 'f' for flag, 'r' for reveal, 'u' for unflag: "
     action = get_action
 
-    puts "Where? Please use coordinates separated by a comma (i.e. '1,2')."
-    position = get_position
+    if action == 'save'
+      puts "What is the name of the file?"
+      position = gets.chomp.downcase
 
+    else
+      puts "Where? Please use coordinates separated by a comma (i.e. '1,2')."
+      position = get_position
+    end
     return action, position
 
   end

@@ -1,16 +1,17 @@
 class Tile
   attr_reader :bomb
-  attr_accessor :adjacent_bombs, :flagged
+  attr_accessor :adjacent_bombs, :flagged, :revealed
 
-    def initialize
-      @bomb = bomb?
-      @flagged = false
-      @adjacent_bombs = nil
-    end
+  def initialize
+    @bomb = bomb?
+    @flagged = false
+    @adjacent_bombs = nil
+    @revealed = false
+  end
 
-    def bomb?
-      [true, false, false].sample
-    end
+  def bomb?
+    [true, false, false].sample
+  end
 end
 
 
@@ -23,15 +24,14 @@ class Board
     @num_bombs = count_bombs
     @bombs_found = 0
     @flag_count = 0
+    calculate_adjacent_bombs
   end
 
   def count_bombs
     count = 0
 
-    @board.each do |row|
-      row.each do |tile|
-        count += 1 if tile.bomb
-      end
+    each_tile do |tile|
+      count += 1 if tile.bomb
     end
 
     count
@@ -43,7 +43,7 @@ class Board
       puts "#{idx} #{row.map do |tile|
         if tile.flagged
           'F'
-        elsif tile.adjacent_bombs.nil?
+        elsif tile.revealed == false
           '*'
         elsif tile.adjacent_bombs == 0
           '_'
@@ -53,7 +53,7 @@ class Board
       end.join(' ')}"
     end
 
-    puts "You have placed #{@flag_count} flags for #{@num_bombs}."
+    puts "You have placed #{@flag_count} flags for #{@num_bombs} bombs."
   end
 
   MOVES = [
@@ -71,10 +71,11 @@ class Board
         @flag_count += 1
         @bombs_found += 1 if tile.bomb
       end
+
       tile.flagged = true
     elsif action == 'r'
       @game_over = true if tile.bomb
-      tile.adjacent_bombs = bombs_adjacent_to(position)
+      tile.revealed = true
       reveal_adjacent_tiles(position) if tile.adjacent_bombs == 0
     elsif action == 'u'
       if tile.flagged
@@ -89,10 +90,11 @@ class Board
 
     MOVES.each do |dx, dy|
       tester = [position[0] + dx, position[1] + dy]
-      next unless tester.all?{|coord| coord.between?(0, 8)}
+      next unless within_bounds?(tester)
       current_tile = @board[tester[0]][tester[1]]
-      next if current_tile.adjacent_bombs != nil && current_tile.adjacent_bombs.between?(0,8)
-      current_tile.adjacent_bombs = bombs_adjacent_to(tester)
+      next if current_tile.revealed
+
+      current_tile.revealed = true
 
       reveal_adjacent_tiles(tester) if current_tile.adjacent_bombs == 0
     end
@@ -104,7 +106,7 @@ class Board
 
     MOVES.each do |dx, dy|
       tester = [position[0] + dx, position[1] + dy]
-      next unless tester.all?{|coord| coord.between?(0, 8)}
+      next unless within_bounds?(tester)
       count += 1 if @board[tester[0]][tester[1]].bomb
     end
 
@@ -112,14 +114,32 @@ class Board
   end
 
   def found_all_bombs?
-    @board.each do |row|
-      row.each do |tile|
-        return false if !tile.flagged && tile.bomb
-        return false if tile.flagged && !tile.bomb
-      end
+    each_tile do |tile|
+      return false if !tile.flagged && tile.bomb
+      return false if tile.flagged && !tile.bomb
     end
 
     @num_bombs == @bombs_found
+  end
+
+  def calculate_adjacent_bombs
+     @board.each_with_index do |row, idx|
+       row.each_with_index do |tile, jdx|
+         tile.adjacent_bombs = bombs_adjacent_to([idx, jdx])
+       end
+     end
+  end
+
+  def within_bounds?(position)
+    position.all? { |coord| coord.between?(0, 8) }
+  end
+
+  def each_tile(&prc)
+    @board.each do |row|
+      row.each do |tile|
+        prc.call(tile)
+      end
+    end
   end
 
 end

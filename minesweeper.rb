@@ -1,3 +1,6 @@
+require 'yaml'
+require 'byebug'
+
 class Tile
   attr_reader :bomb
   attr_accessor :adjacent_bombs, :flagged, :revealed
@@ -62,28 +65,31 @@ class Board
     [ 1, -1], [ 1, 0], [ 1, 1]
   ]
 
-  def make_move(move)
-    action, position = move[0], move[1]
+
+  def flag(position)
     tile = @board[position[0]][position[1]]
-
-    if action == 'f'
-      unless tile.flagged
-        @flag_count += 1
-        @bombs_found += 1 if tile.bomb
-      end
-
-      tile.flagged = true
-    elsif action == 'r'
-      @game_over = true if tile.bomb
-      tile.revealed = true
-      reveal_adjacent_tiles(position) if tile.adjacent_bombs == 0
-    elsif action == 'u'
-      if tile.flagged
-        @flag_count -= 1
-        @bombs_found -= 1 if tile.bomb
-      end
-      tile.flagged = false
+    unless tile.flagged
+      @flag_count += 1
+      @bombs_found += 1 if tile.bomb
     end
+    tile.flagged = true
+  end
+
+
+  def reveal(position)
+    tile = @board[position[0]][position[1]]
+    @game_over = true if tile.bomb
+    tile.revealed = true
+    reveal_adjacent_tiles(position) if tile.adjacent_bombs == 0
+  end
+
+  def unflag(position)
+    tile = @board[position[0]][position[1]]
+    if tile.flagged
+      @flag_count -= 1
+      @bombs_found -= 1 if tile.bomb
+    end
+    tile.flagged = false
   end
 
   def reveal_adjacent_tiles(position)
@@ -154,17 +160,32 @@ class Game
   def play
     puts "Welcome to Minesweeper!"
 
+    if load_prompt
+      load
+    end
+
     while @game_on
 
       @board.display
 
-      move = get_move
-      @board.make_move(move)
+      action, position = get_move
+      case action
+      when 'f'
+        @board.flag(position)
+      when 'r'
+        @board.reveal(position)
+      when 'u'
+        @board.unflag(position)
+      when 'save'
+        save_game
+      end
+
       if @board.game_over
         @game_on = false
-        puts "You lose! #{move[1]} was a bomb."
+        puts "You lose! #{position} was a bomb."
         @board.display
       end
+
       if @board.found_all_bombs?
         puts "You win! Congrats."
         @game_on = false
@@ -175,15 +196,46 @@ class Game
 
   end
 
+  def save_game
+    File.open('save.yaml', 'w') do |line|
+      line.puts @board.to_yaml
+    end
+    puts "File saved."
+  end
+
+  def load
+
+    contents = File.readlines('save.yaml')
+    @board = YAML::load(contents.join)
+    debugger
+    nil
+  end
+
+  def load_prompt
+    while true
+      puts "Would you like to load a game? (y/n)"
+
+      response = gets.chomp.downcase
+      if response == 'y'
+        return true
+      elsif respone == 'n'
+        return false
+      else
+        puts "Invalid response."
+      end
+    end
+  end
+
   def get_move
 
-    print "Flag or reveal? 'f' for flag, 'r' for reveal, 'u' for unflag: "
+    puts "What Action would you like to take?"
+    puts "'save' to save, 'f' for flag, 'r' for reveal, 'u' for unflag: "
     action = get_action
 
     puts "Where? Please use coordinates separated by a comma (i.e. '1,2')."
     position = get_position
 
-    return [action, position]
+    return action, position
 
   end
 
@@ -198,7 +250,7 @@ class Game
   def get_action
     while true
       output = gets.chomp.downcase
-      return output if ['f', 'r', 'u'].include?(output)
+      return output if ['f', 'r', 'u', 'save'].include?(output)
       puts "That is not a valid action."
     end
   end

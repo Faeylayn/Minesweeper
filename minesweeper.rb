@@ -9,12 +9,8 @@ class Tile
     end
 
     def bomb?
-      [true, false].sample
+      [true, false, false].sample
     end
-
-
-
-
 end
 
 
@@ -79,6 +75,7 @@ class Board
     elsif action == 'r'
       @game_over = true if tile.bomb
       tile.adjacent_bombs = bombs_adjacent_to(position)
+      reveal_adjacent_tiles(position) if tile.adjacent_bombs == 0
     elsif action == 'u'
       if tile.flagged
         @flag_count -= 1
@@ -88,11 +85,25 @@ class Board
     end
   end
 
+  def reveal_adjacent_tiles(position)
+
+    MOVES.each do |dx, dy|
+      tester = [position[0] + dx, position[1] + dy]
+      next unless tester.all?{|coord| coord.between?(0, 8)}
+      current_tile = @board[tester[0]][tester[1]]
+      next if current_tile.adjacent_bombs != nil && current_tile.adjacent_bombs.between?(0,8)
+      current_tile.adjacent_bombs = bombs_adjacent_to(tester)
+
+      reveal_adjacent_tiles(tester) if current_tile.adjacent_bombs == 0
+    end
+
+  end
+
   def bombs_adjacent_to(position)
     count = 0
 
-    MOVES.each do |x, y|
-      tester = [position[0] + x, position[1] + y]
+    MOVES.each do |dx, dy|
+      tester = [position[0] + dx, position[1] + dy]
       next unless tester.all?{|coord| coord.between?(0, 8)}
       count += 1 if @board[tester[0]][tester[1]].bomb
     end

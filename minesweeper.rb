@@ -1,6 +1,6 @@
 class Tile
   attr_reader :bomb
-  attr_accessor :adjacent_bombs
+  attr_accessor :adjacent_bombs, :flagged
 
     def initialize
       @bomb = bomb?
@@ -26,6 +26,7 @@ class Board
     @game_over = false
     @num_bombs = count_bombs
     @bombs_found = 0
+    @flag_count = 0
   end
 
   def count_bombs
@@ -41,32 +42,49 @@ class Board
   end
 
   def display
-    @board.map do |row|
-      puts "#{row.map do |tile|
-        'F' if tile.flagged
-        '*' if tile.adjacent_bombs.nil?
-        '_' if tile.adjacent_bombs == 0
-        "#{tile.adjacent_bombs}" if tile.adjacent_bombs.between?(1,8)
+    puts "  #{(0..8).to_a.join(' ')}"
+    @board.map.with_index do |row, idx|
+      puts "#{idx} #{row.map do |tile|
+        if tile.flagged
+          'F'
+        elsif tile.adjacent_bombs.nil?
+          '*'
+        elsif tile.adjacent_bombs == 0
+          '_'
+        else
+          "#{tile.adjacent_bombs}"
+        end
       end.join(' ')}"
     end
 
-    puts "You have found #{@bombs_found} / #{@num_bombs}."
+    puts "You have placed #{@flag_count} flags for #{@num_bombs}."
   end
 
   MOVES = [
-    [-1, -1],  [-1, 0],  [-1, 1],
-    [0, -1],           [0, 1],
-    [1, -1], [1, 0], [1, 1]
+    [-1, -1], [-1, 0], [-1, 1],
+    [ 0, -1],          [ 0, 1],
+    [ 1, -1], [ 1, 0], [ 1, 1]
   ]
 
   def make_move(move)
     action, position = move[0], move[1]
     tile = @board[position[0]][position[1]]
 
-    tile.flagged = true if action == 'f'
-    if action == 'r'
+    if action == 'f'
+      unless tile.flagged
+        @flag_count += 1
+        @bombs_found += 1 if tile.bomb
+      end
+      tile.flagged = true
+    elsif action == 'r'
       @game_over = true if tile.bomb
       tile.adjacent_bombs = bombs_adjacent_to(position)
+    elsif action == 'u'
+      if tile.flagged
+        @flag_count -= 1
+        @bombs_found -= 1 if tile.bomb
+      end
+      tile.flagged = false
     end
   end
 
@@ -80,6 +98,17 @@ class Board
     end
 
     count
+  end
+
+  def found_all_bombs?
+    @board.each do |row|
+      row.each do |tile|
+        return false if !tile.flagged && tile.bomb
+        return false if tile.flagged && !tile.bomb
+      end
+    end
+
+    @num_bombs == @bombs_found
   end
 
 end
@@ -105,7 +134,11 @@ class Game
         puts "You lose! #{move[1]} was a bomb."
         @board.display
       end
-
+      if @board.found_all_bombs?
+        puts "You win! Congrats."
+        @game_on = false
+        @board.display
+      end
 
     end
 
@@ -113,7 +146,7 @@ class Game
 
   def get_move
 
-    print "Flag or reveal? 'f' for flag, 'r' for reveal: "
+    print "Flag or reveal? 'f' for flag, 'r' for reveal, 'u' for unflag: "
     action = get_action
 
     puts "Where? Please use coordinates separated by a comma (i.e. '1,2')."
@@ -125,7 +158,7 @@ class Game
 
   def get_position
     while true
-      ouput = gets.chomp.split(',')
+      output = gets.chomp.split(',').map(&:to_i)
       return output if output.all? { |coord| coord.between?(0,8) }
       puts "That is not a valid position."
     end
@@ -134,7 +167,7 @@ class Game
   def get_action
     while true
       output = gets.chomp.downcase
-      return output if output == 'f' || output == 'r'
+      return output if ['f', 'r', 'u'].include?(output)
       puts "That is not a valid action."
     end
   end
